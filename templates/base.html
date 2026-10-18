@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}在线题库系统{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="{% if current_user %}app-page{% endif %} {% block body_class %}{% endblock %}">
+  {% if current_user %}
+  <header class="topbar">
+    <a class="brand brand-visual" href="{{ url_for('dashboard') }}" aria-label="在线题库系统">
+      <img src="{{ url_for('static', filename='header-brand.png') }}" alt="常州工学院新工科科创学院">
+    </a>
+    <a class="brand brand-text" href="{{ url_for('dashboard') }}">在线题库系统</a>
+    <nav>
+      <a href="{{ url_for('dashboard') }}">概览</a>
+      <a href="{{ url_for('questions') }}">题库</a>
+      <a href="{{ url_for('papers') }}">试卷</a>
+      <a href="{{ url_for('results') }}">成绩</a>
+      <a href="{{ url_for('analytics') }}">分析</a>
+      {% if current_user.role == 'student' %}
+      <a href="{{ url_for('wrong_questions') }}">错题本</a>
+      {% endif %}
+      {% if current_user.role == 'teacher' %}
+      <a href="{{ url_for('classes') }}">班级</a>
+      <a href="{{ url_for('paper_new') }}">自动组卷</a>
+      {% endif %}
+      <span class="user-badge">{{ current_user.display_name or current_user.username }} · {{ '教师' if current_user.role == 'teacher' else '学生' }}</span>
+      <a href="{{ url_for('change_password') }}">账号设置</a>
+      <a class="logout-link" href="{{ url_for('logout') }}">退出</a>
+    </nav>
+  </header>
+  {% endif %}
+  <main class="page">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-list">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

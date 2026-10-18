@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}批量导入题目 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading compact">
+  <div>
+    <p class="eyebrow">IMPORT QUESTIONS</p>
+    <h1>批量导入题目</h1>
+    <p class="muted">上传 CSV 或 Excel 文件，一次性导入多道题目。</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('questions') }}">返回题库</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="editor-form import-form">
+  <label>选择 CSV 或 Excel 文件
+    <input type="file" name="file" accept=".csv,text/csv,.xlsx,.xlsm" required>
+  </label>
+  <div class="form-actions">
+    <a class="button secondary" href="{{ url_for('question_import_template') }}">下载 CSV 模板</a>
+    <a class="button secondary" href="{{ url_for('question_import_excel_template') }}">下载 Excel 模板</a>
+    <button class="button primary" type="submit">开始导入</button>
+  </div>
+</form>
+
+{% if result %}
+<section class="table-wrap import-result">
+  <table>
+    <tbody>
+      <tr>
+        <td>读取行数</td>
+        <td>{{ result.total }}</td>
+      </tr>
+      <tr>
+        <td>成功导入</td>
+        <td>{{ result.inserted }}</td>
+      </tr>
+      <tr>
+        <td>跳过重复</td>
+        <td>{{ result.skipped }}</td>
+      </tr>
+      <tr>
+        <td>错误行数</td>
+        <td>{{ result.errors|length }}</td>
+      </tr>
+    </tbody>
+  </table>
+  {% if result.errors %}
+  <div class="import-errors">
+    <strong>需要处理的问题：</strong>
+    <ul>
+      {% for error in result.errors %}
+      <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="import-guide">
+  <h2>导入字段说明</h2>
+  <p class="muted">第一行必须保留字段名，之后每行一道题。空白行会自动忽略。CSV 和 Excel 模板均可用。</p>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>字段</th><th>填写说明</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>科目</td><td>计算机基础、高等数学、英语</td></tr>
+        <tr><td>章节</td><td>例如：Python基础、导数与微分</td></tr>
+        <tr><td>题型</td><td>单选题、多选题、判断题、填空题</td></tr>
+        <tr><td>难度</td><td>简单、中等、困难</td></tr>
+        <tr><td>题目内容</td><td>题目的完整文字，不能为空</td></tr>
+        <tr><td>选项</td><td>选择题填写，用竖线“|”或分号分隔；填空/判断题可留空</td></tr>
+        <tr><td>答案</td><td>例如 A、A,C、正确、错误、print</td></tr>
+        <tr><td>解析</td><td>可选</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

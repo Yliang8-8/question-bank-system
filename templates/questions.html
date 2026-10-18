@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}题库管理 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">QUESTION BANK</p>
+    <h1>题库管理</h1>
+    <p class="muted">共 {{ pagination.total }} 道符合条件的题目，当前第 {{ pagination.page }}/{{ pagination.total_pages }} 页。</p>
+  </div>
+  <div class="heading-actions">
+    {% if current_user.role == 'teacher' %}
+    <a class="button secondary" href="{{ url_for('paper_new') }}">自动组卷</a>
+    <a class="button secondary" href="{{ url_for('question_import') }}">批量导入</a>
+    <a class="button primary" href="{{ url_for('question_new') }}">新增题目</a>
+    {% endif %}
+  </div>
+</div>
+<form class="filter-bar" method="get">
+  <input name="keyword" value="{{ filters.keyword }}" placeholder="搜索题目、科目或章节">
+  <select name="subject">
+    <option value="">全部科目</option>
+    {% for subject in subjects %}<option value="{{ subject }}" {% if filters.subject == subject %}selected{% endif %}>{{ subject }}</option>{% endfor %}
+  </select>
+  <select name="difficulty">
+    <option value="">全部难度</option>
+    {% for value, label in difficulty_labels.items() %}<option value="{{ value }}" {% if filters.difficulty == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="question_type">
+    <option value="">全部题型</option>
+    {% for value, label in question_type_labels.items() %}<option value="{{ value }}" {% if filters.question_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <button class="button secondary" type="submit">筛选</button>
+</form>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>ID</th><th>题目</th><th>科目</th><th>类型</th><th>难度</th><th>章节</th><th>选项</th><th>答案</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for question in questions %}
+      <tr>
+        <td>{{ question.id }}</td>
+        <td class="question-content">{{ question.content }}</td>
+        <td>{{ question.subject or '计算机基础' }}</td>
+        <td>{{ question_type_labels[question.question_type] }}</td>
+        <td><span class="tag {{ question.difficulty }}">{{ difficulty_labels[question.difficulty] }}</span></td>
+        <td>{{ question.chapter or '未分类' }}</td>
+        <td class="options-cell">
+          {% if question.question_type in ['single', 'multiple'] and question.options %}
+            {{ question.options.replace('\n', '；') }}
+          {% elif question.question_type == 'true_false' %}
+            对；错
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>{{ question.answer }}</td>
+        <td class="actions">
+          {% if current_user.role == 'teacher' %}
+          <a href="{{ url_for('question_edit', question_id=question.id) }}">编辑</a>
+          <form method="post" action="{{ url_for('question_delete', question_id=question.id) }}" onsubmit="return confirm('确定删除这道题吗？')">
+            <button class="link-danger" type="submit">删除</button>
+          </form>
+          {% else %}
+          <span class="muted">只读</span>
+          {% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="9" class="empty">暂无符合条件的题目。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% if pagination.total_pages > 1 %}
+{% set prev_page = pagination.page - 1 if pagination.page > 1 else 1 %}
+{% set next_page = pagination.page + 1 if pagination.page < pagination.total_pages else pagination.total_pages %}
+<div class="pagination">
+  <a class="button secondary" href="{{ url_for('questions', page=1, keyword=filters.keyword, subject=filters.subject, difficulty=filters.difficulty, question_type=filters.question_type) }}">首页</a>
+  <a class="button secondary" href="{{ url_for('questions', page=prev_page, keyword=filters.keyword, subject=filters.subject, difficulty=filters.difficulty, question_type=filters.question_type) }}">上一页</a>
+  <span>{{ pagination.page }} / {{ pagination.total_pages }}</span>
+  <a class="button secondary" href="{{ url_for('questions', page=next_page, keyword=filters.keyword, subject=filters.subject, difficulty=filters.difficulty, question_type=filters.question_type) }}">下一页</a>
+  <a class="button secondary" href="{{ url_for('questions', page=pagination.total_pages, keyword=filters.keyword, subject=filters.subject, difficulty=filters.difficulty, question_type=filters.question_type) }}">末页</a>
+</div>
+{% endif %}
+{% endblock %}

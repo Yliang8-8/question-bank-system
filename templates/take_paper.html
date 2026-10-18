@@ -1,0 +1,285 @@
+{% extends "base.html" %}
+{% block title %}在线考试 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">EXAM</p>
+    <h1>{{ paper.title }}</h1>
+    <p class="muted">请在规定时间内完成作答，提交后将自动评分并生成成绩记录。</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('papers') }}">返回试卷</a>
+</div>
+
+<div class="exam-layout">
+<form method="post" class="exam-sheet exam-main" data-exam-form data-paper-id="{{ paper.id }}" data-duration-seconds="{{ (paper.duration_minutes or 30) * 60 }}">
+  {% for item in items %}
+  <article class="exam-item" id="question_{{ item.paper_question_id }}" data-question-key="question_{{ item.paper_question_id }}">
+    <div class="exam-meta">
+      <span>第 {{ item.sort_order }} 题</span>
+      <span>{{ question_type_labels[item.question_type] }} · {{ item.score }} 分</span>
+      <button type="button" class="mark-question" data-question-key="question_{{ item.paper_question_id }}">标记</button>
+    </div>
+    <h2>{{ item.content }}</h2>
+    {% if item.question_type == 'single' %}
+      {% set choices = parse_options(item.options) %}
+      {% if choices %}
+      <div class="choice-list" data-question-key="question_{{ item.paper_question_id }}">
+        {% for option in choices %}
+        <label class="choice-option">
+          <input class="answer-input" type="radio" name="question_{{ item.paper_question_id }}" value="{{ option[:1] }}" data-question-key="question_{{ item.paper_question_id }}">
+          <span>{{ option }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <label>你的答案
+        <input class="answer-input" name="question_{{ item.paper_question_id }}" placeholder="此题暂未维护选项，请输入答案字母" data-question-key="question_{{ item.paper_question_id }}">
+      </label>
+      {% endif %}
+    {% elif item.question_type == 'multiple' %}
+      {% set choices = parse_options(item.options) %}
+      {% if choices %}
+      <div class="choice-list" data-question-key="question_{{ item.paper_question_id }}">
+        {% for option in choices %}
+        <label class="choice-option">
+          <input class="answer-input" type="checkbox" name="question_{{ item.paper_question_id }}" value="{{ option[:1] }}" data-question-key="question_{{ item.paper_question_id }}">
+          <span>{{ option }}</span>
+        </label>
+        {% endfor %}
+      </div>
+      {% else %}
+      <label>你的答案
+        <input class="answer-input" name="question_{{ item.paper_question_id }}" placeholder="此题暂未维护选项，请输入答案字母，多个答案用逗号分隔" data-question-key="question_{{ item.paper_question_id }}">
+      </label>
+      {% endif %}
+    {% elif item.question_type == 'true_false' %}
+      <div class="choice-list choice-list-inline" data-question-key="question_{{ item.paper_question_id }}">
+        <label class="choice-option">
+          <input class="answer-input" type="radio" name="question_{{ item.paper_question_id }}" value="正确" data-question-key="question_{{ item.paper_question_id }}">
+          <span>对</span>
+        </label>
+        <label class="choice-option">
+          <input class="answer-input" type="radio" name="question_{{ item.paper_question_id }}" value="错误" data-question-key="question_{{ item.paper_question_id }}">
+          <span>错</span>
+        </label>
+      </div>
+    {% else %}
+      <label>你的答案
+        <input class="answer-input" name="question_{{ item.paper_question_id }}" placeholder="请输入答案" data-question-key="question_{{ item.paper_question_id }}">
+      </label>
+    {% endif %}
+  </article>
+  {% endfor %}
+  <div class="form-actions">
+    <button class="button primary" type="submit" id="exam-submit">提交试卷</button>
+  </div>
+</form>
+<aside class="exam-sidebar">
+  <div class="exam-toolbar">
+    <div>
+      <span class="toolbar-label">剩余时间</span>
+      <strong id="exam-countdown">30:00</strong>
+    </div>
+    <div class="exam-progress">
+      <span class="toolbar-label" id="exam-progress-text">已答 0 / {{ items|length }}</span>
+      <div class="progress-track"><span id="exam-progress-bar"></span></div>
+    </div>
+    <div>
+      <span class="toolbar-label">保存状态</span>
+      <strong id="exam-save-state">已暂存</strong>
+    </div>
+  </div>
+  <div class="answer-card">
+    <div class="answer-card-head">
+      <span>答题卡</span>
+      <span id="answer-card-progress">0 / {{ items|length }}</span>
+    </div>
+    <div class="answer-grid">
+      {% for item in items %}
+      <button type="button" class="answer-dot" data-question-key="question_{{ item.paper_question_id }}" data-target="#question_{{ item.paper_question_id }}">{{ item.sort_order }}</button>
+      {% endfor %}
+    </div>
+  </div>
+</aside>
+</div>
+
+<script>
+  (function () {
+    const form = document.querySelector("[data-exam-form]");
+    if (!form) return;
+
+    const durationSeconds = Number(form.dataset.durationSeconds || 1800);
+    const userId = "{{ current_user.id }}";
+    const attemptNumber = {{ attempt_number }};
+    const storageKey = `question-bank-paper-${form.dataset.paperId}-user-${userId}-attempt-${attemptNumber}`;
+    const deadlineKey = `${storageKey}-deadline`;
+    const inputs = Array.from(form.querySelectorAll(".answer-input"));
+    const countdown = document.getElementById("exam-countdown");
+    const progressText = document.getElementById("exam-progress-text");
+    const progressBar = document.getElementById("exam-progress-bar");
+    const saveState = document.getElementById("exam-save-state");
+    const submitButton = document.getElementById("exam-submit");
+    const answerDots = Array.from(document.querySelectorAll(".answer-dot"));
+    const answerCardProgress = document.getElementById("answer-card-progress");
+    const markButtons = Array.from(document.querySelectorAll(".mark-question"));
+    let submitted = false;
+    let saveTimer = null;
+
+    function readDraft() {
+      try {
+        return JSON.parse(localStorage.getItem(storageKey) || "{}");
+      } catch (_error) {
+        return {};
+      }
+    }
+
+    function questionKeys() {
+      return Array.from(new Set(inputs.map((input) => input.dataset.questionKey || input.name)));
+    }
+
+    function saveDraft() {
+      const draft = {};
+      inputs.forEach((input) => {
+        const key = input.dataset.questionKey || input.name;
+        if (input.type === "checkbox") {
+          if (!draft[key]) draft[key] = [];
+          if (input.checked) draft[key].push(input.value);
+        } else if (input.type === "radio") {
+          if (input.checked) draft[key] = input.value;
+        } else {
+          draft[key] = input.value;
+        }
+      });
+      localStorage.setItem(storageKey, JSON.stringify(draft));
+      saveState.textContent = "已暂存";
+    }
+
+    function clearDraft() {
+      localStorage.removeItem(storageKey);
+      localStorage.removeItem(deadlineKey);
+    }
+
+    function updateProgress() {
+      const keys = questionKeys();
+      const answeredKeys = keys.filter((key) => {
+        const group = inputs.filter((input) => (input.dataset.questionKey || input.name) === key);
+        return group.some((input) => {
+          if (input.type === "checkbox" || input.type === "radio") return input.checked;
+          return input.value.trim() !== "";
+        });
+      });
+      const answered = answeredKeys.length;
+      const total = keys.length || 1;
+      const percent = Math.round((answered / total) * 100);
+      progressText.textContent = `已答 ${answered} / ${keys.length}`;
+      progressBar.style.width = `${percent}%`;
+      updateAnswerCard(answeredKeys);
+    }
+
+    function updateAnswerCard(answeredKeys) {
+      const answeredSet = new Set(answeredKeys);
+      answerDots.forEach((dot) => {
+        const key = dot.dataset.questionKey;
+        const article = document.querySelector(`[data-question-key="${key}"]`);
+        dot.classList.toggle("is-answered", answeredSet.has(key));
+        dot.classList.toggle("is-marked", article ? article.classList.contains("is-marked") : false);
+      });
+      if (answerCardProgress) {
+        answerCardProgress.textContent = `${answeredSet.size} / ${questionKeys().length}`;
+      }
+    }
+
+    function formatTime(seconds) {
+      const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
+      const rest = Math.floor(seconds % 60).toString().padStart(2, "0");
+      return `${minutes}:${rest}`;
+    }
+
+    function submitExam() {
+      submitted = true;
+      clearDraft();
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "提交中";
+      }
+      form.submit();
+    }
+
+    const draft = readDraft();
+    inputs.forEach((input) => {
+      const key = input.dataset.questionKey || input.name;
+      if (Object.prototype.hasOwnProperty.call(draft, key)) {
+        if (input.type === "checkbox") {
+          input.checked = Array.isArray(draft[key]) && draft[key].includes(input.value);
+        } else if (input.type === "radio") {
+          input.checked = draft[key] === input.value;
+        } else {
+          input.value = draft[key];
+        }
+      }
+      input.addEventListener("input", () => {
+        saveState.textContent = "正在暂存";
+        window.clearTimeout(saveTimer);
+        saveTimer = window.setTimeout(saveDraft, 200);
+        updateProgress();
+      });
+      input.addEventListener("change", () => {
+        saveState.textContent = "正在暂存";
+        saveDraft();
+        updateProgress();
+      });
+    });
+
+    answerDots.forEach((dot) => {
+      dot.addEventListener("click", () => {
+        const target = document.querySelector(dot.dataset.target);
+        if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+
+    markButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const key = button.dataset.questionKey;
+        const article = document.querySelector(`article[data-question-key="${key}"]`);
+        if (!article) return;
+        article.classList.toggle("is-marked");
+        button.textContent = article.classList.contains("is-marked") ? "取消标记" : "标记";
+        updateProgress();
+      });
+    });
+
+    updateProgress();
+
+    let deadline = Number(localStorage.getItem(deadlineKey));
+    if (!deadline || deadline <= Date.now()) {
+      deadline = Date.now() + durationSeconds * 1000;
+      localStorage.setItem(deadlineKey, String(deadline));
+    }
+
+    function tick() {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      countdown.textContent = formatTime(remaining);
+      countdown.classList.toggle("is-urgent", remaining <= 300);
+      if (remaining <= 0 && !submitted) {
+        submitExam();
+      }
+    }
+    tick();
+    window.setInterval(tick, 1000);
+
+    form.addEventListener("submit", (event) => {
+      if (submitted) return;
+      if (!window.confirm("确定提交试卷吗？提交后不能重复作答。")) {
+        event.preventDefault();
+        return;
+      }
+      submitted = true;
+      clearDraft();
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = "提交中";
+      }
+    });
+  })();
+</script>
+{% endblock %}

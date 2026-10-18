@@ -1,0 +1,303 @@
+{% extends "base.html" %}
+{% block title %}自动组卷 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading compact">
+  <div>
+    <p class="eyebrow">PAPER BUILDER</p>
+    <h1>自动组卷</h1>
+    <p class="muted">先选择科目，再按章节、题型和难度抽取题目。</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('questions') }}">返回题库</a>
+</div>
+<form method="post" class="editor-form {% if preview_draft %}paper-builder-form{% endif %}">
+  <input type="hidden" name="action" id="paper-action" value="preview">
+  <label>试卷名称<input name="title" value="{{ form.get('title', '') }}" placeholder="例如：Python基础练习卷一" required></label>
+  <label>组卷科目
+    <select name="subject" id="paper-subject" required>
+      {% for subject in subjects %}
+      <option value="{{ subject }}" {% if form.get('subject', selected_subject) == subject %}selected{% endif %}>{{ subject }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>限定章节
+    <select name="chapter" id="paper-chapter">
+      <option value="">全部章节</option>
+      {% for chapter in chapters %}
+      <option value="{{ chapter }}" {% if form.get('chapter', '') == chapter %}selected{% endif %}>{{ chapter }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <h2 class="form-section-title">题型数量</h2>
+  <div class="form-grid four">
+    <label>单选题<input type="number" name="single_count" min="0" value="{{ form.get('single_count', 1) }}" data-paper-count data-group="type" data-key="single"></label>
+    <label>多选题<input type="number" name="multiple_count" min="0" value="{{ form.get('multiple_count', 0) }}" data-paper-count data-group="type" data-key="multiple"></label>
+    <label>判断题<input type="number" name="true_false_count" min="0" value="{{ form.get('true_false_count', 1) }}" data-paper-count data-group="type" data-key="true_false"></label>
+    <label>填空题<input type="number" name="fill_count" min="0" value="{{ form.get('fill_count', 0) }}" data-paper-count data-group="type" data-key="fill"></label>
+  </div>
+  <h2 class="form-section-title">难度数量（可选）</h2>
+  <p class="muted small">不填写也可以，系统会按题型组卷。</p>
+  <div class="form-grid three">
+    <label>简单题<input type="number" name="easy_count" min="0" value="{{ form.get('easy_count', 0) }}" data-paper-count data-group="difficulty" data-key="easy"></label>
+    <label>中等题<input type="number" name="medium_count" min="0" value="{{ form.get('medium_count', 0) }}" data-paper-count data-group="difficulty" data-key="medium"></label>
+    <label>困难题<input type="number" name="hard_count" min="0" value="{{ form.get('hard_count', 0) }}" data-paper-count data-group="difficulty" data-key="hard"></label>
+  </div>
+  <label>每道题分值<input type="number" name="score_per_question" min="1" value="{{ form.get('score_per_question', 5) }}" id="score-per-question"></label>
+  <label>考试时长（分钟）<input type="number" name="duration_minutes" min="1" max="180" value="{{ form.get('duration_minutes', 30) }}"></label>
+  <label>限做次数<input type="number" name="max_attempts" min="1" max="99" value="{{ form.get('max_attempts', 1) }}"></label>
+  <h2 class="form-section-title">发布班级</h2>
+  <div class="class-check-grid">
+    {% for class_item in teacher_classes %}
+    <label class="class-check">
+      <input type="checkbox" name="class_ids" value="{{ class_item.id }}" {% if class_item.id|string in selected_class_ids %}checked{% endif %}>
+      <span>{{ class_item.name }}</span>
+    </label>
+    {% else %}
+    <p class="muted">还没有班级，请先到“班级”页面创建班级。</p>
+    {% endfor %}
+  </div>
+  <section class="builder-preview">
+    <div class="builder-summary">
+      <div><span>预计总题数</span><strong id="preview-question-count">0</strong></div>
+      <div><span>预计总分</span><strong id="preview-total-score">0</strong></div>
+      <div><span>当前库存</span><strong id="preview-scope-total">0</strong></div>
+    </div>
+    <div class="builder-checks">
+      <div>
+        <h3>题型库存</h3>
+        <div id="type-availability"></div>
+      </div>
+      <div>
+        <h3>难度库存</h3>
+        <div id="difficulty-availability"></div>
+      </div>
+    </div>
+    <p class="builder-warning" id="builder-warning">当前规则可以生成试卷。</p>
+  </section>
+  {% if preview_draft %}
+  <section class="builder-preview draft-panel">
+    <div class="section-heading">
+      <h2>试卷预览</h2>
+      <span class="muted">可先查看题目，再手动更换后生成</span>
+    </div>
+    <input type="hidden" name="preview_ready" value="1">
+    <div class="draft-layout">
+      <div class="draft-list">
+        {% for item in preview_draft.questions %}
+        <article class="draft-item" data-draft-item="{{ loop.index0 }}">
+          <input type="hidden" name="replace_{{ loop.index0 }}" data-replacement-input="{{ loop.index0 }}" value="">
+          <div class="exam-meta">
+            <span>第 {{ loop.index }} 题</span>
+            <span>
+              {{ question_type_labels[item.question_type] }} · {{ preview_draft.score_per_question }} 分 ·
+              <strong data-draft-difficulty="{{ loop.index0 }}">{{ difficulty_labels[item.difficulty] }}</strong>
+            </span>
+          </div>
+          <h3 data-draft-content="{{ loop.index0 }}">{{ item.content }}</h3>
+          <div class="draft-item-foot">
+            <span data-draft-chapter="{{ loop.index0 }}">{{ item.chapter or '未分类' }}</span>
+            <button class="button secondary replace-trigger" type="button" data-replace-index="{{ loop.index0 }}">更换题目</button>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+      <aside class="replacement-panel" id="replacement-panel">
+        <div class="replacement-panel-head">
+          <span class="eyebrow">REPLACE</span>
+          <h3 id="replacement-title">选择要更换的题目</h3>
+        </div>
+        <div class="replacement-list" id="replacement-list">
+          <p class="empty small">点击左侧“更换题目”后，在这里选择同类型题目。</p>
+        </div>
+      </aside>
+    </div>
+  </section>
+  {% endif %}
+  <div class="form-actions">
+    <a class="button secondary" href="{{ url_for('dashboard') }}">取消</a>
+    {% if preview_draft %}
+    <button class="button secondary" type="submit" onclick="document.getElementById('paper-action').value='preview'">重新预览</button>
+    <button class="button primary" type="submit" onclick="document.getElementById('paper-action').value='generate'">生成试卷</button>
+    {% else %}
+    <button class="button primary" type="submit" onclick="document.getElementById('paper-action').value='preview'">预览试卷</button>
+    {% endif %}
+  </div>
+</form>
+<script>
+  (function () {
+    const subjectSelect = document.getElementById("paper-subject");
+    const chapterSelect = document.getElementById("paper-chapter");
+    if (!subjectSelect || !chapterSelect) return;
+    const subjectChapters = {{ subject_chapters|tojson }};
+    const availability = {{ availability|tojson }};
+    const typeLabels = {{ question_type_labels|tojson }};
+    const difficultyLabels = {{ difficulty_labels|tojson }};
+    const currentChapter = "{{ form.get('chapter', '') }}";
+    const countInputs = Array.from(document.querySelectorAll("[data-paper-count]"));
+    const scoreInput = document.getElementById("score-per-question");
+    const warning = document.getElementById("builder-warning");
+
+    function renderChapters() {
+      const previousChapter = chapterSelect.value || currentChapter;
+      const chapters = subjectChapters[subjectSelect.value] || [];
+      chapterSelect.innerHTML = "";
+      const allOption = document.createElement("option");
+      allOption.value = "";
+      allOption.textContent = "全部章节";
+      chapterSelect.appendChild(allOption);
+      chapters.forEach((chapter) => {
+        const option = document.createElement("option");
+        option.value = chapter;
+        option.textContent = chapter;
+        if (chapter === previousChapter) option.selected = true;
+        chapterSelect.appendChild(option);
+      });
+      updatePreview();
+    }
+
+    function countValue(input) {
+      return Math.max(0, Number(input.value || 0));
+    }
+
+    function selectedBucket() {
+      const subject = availability[subjectSelect.value] || {};
+      return subject[chapterSelect.value] || subject[""] || { total: 0, by_type: {}, by_difficulty: {} };
+    }
+
+    function renderAvailability(containerId, labels, bucketKey, groupName) {
+      const container = document.getElementById(containerId);
+      const bucket = selectedBucket();
+      const rows = Object.entries(labels).map(([key, label]) => {
+        const requested = countInputs
+          .filter((input) => input.dataset.group === groupName && input.dataset.key === key)
+          .reduce((sum, input) => sum + countValue(input), 0);
+        const available = bucket[bucketKey][key] || 0;
+        const statusClass = requested > available ? "fail" : "pass";
+        return `<p class="${statusClass}"><span>${label}</span><strong>${requested} / ${available}</strong></p>`;
+      });
+      container.innerHTML = rows.join("");
+    }
+
+    function updatePreview() {
+      const requestedTotal = countInputs.reduce((sum, input) => sum + countValue(input), 0);
+      const score = Math.max(1, Number(scoreInput.value || 1));
+      const bucket = selectedBucket();
+      document.getElementById("preview-question-count").textContent = requestedTotal;
+      document.getElementById("preview-total-score").textContent = requestedTotal * score;
+      document.getElementById("preview-scope-total").textContent = bucket.total || 0;
+      renderAvailability("type-availability", typeLabels, "by_type", "type");
+      renderAvailability("difficulty-availability", difficultyLabels, "by_difficulty", "difficulty");
+
+      const messages = [];
+      countInputs.forEach((input) => {
+        const requested = countValue(input);
+        if (!requested) return;
+        const group = input.dataset.group;
+        const key = input.dataset.key;
+        const available = group === "type"
+          ? bucket.by_type[key] || 0
+          : bucket.by_difficulty[key] || 0;
+        if (requested > available) {
+          const label = group === "type" ? typeLabels[key] : difficultyLabels[key];
+          messages.push(`${label}需要 ${requested} 道，当前只有 ${available} 道`);
+        }
+      });
+      if (requestedTotal > (bucket.total || 0)) {
+        messages.push(`总题数需要 ${requestedTotal} 道，当前范围只有 ${bucket.total || 0} 道`);
+      }
+      if (messages.length) {
+        warning.className = "builder-warning fail";
+        warning.textContent = messages.join("；");
+      } else {
+        warning.className = "builder-warning pass";
+        warning.textContent = "当前规则可以生成试卷。";
+      }
+    }
+
+    subjectSelect.addEventListener("change", renderChapters);
+    chapterSelect.addEventListener("change", updatePreview);
+    countInputs.forEach((input) => input.addEventListener("input", updatePreview));
+    scoreInput.addEventListener("input", updatePreview);
+    renderChapters();
+  })();
+</script>
+{% if preview_draft %}
+<script>
+  (function () {
+    const choices = {{ replacement_choices|tojson }};
+    const buttons = Array.from(document.querySelectorAll("[data-replace-index]"));
+    const panel = document.getElementById("replacement-panel");
+    const title = document.getElementById("replacement-title");
+    const list = document.getElementById("replacement-list");
+    const inputs = Array.from(document.querySelectorAll("[data-replacement-input]"));
+    let activeIndex = null;
+
+    function selectedElsewhere() {
+      return new Set(inputs
+        .filter((input) => Number(input.dataset.replacementInput) !== activeIndex)
+        .map((input) => input.value)
+        .filter(Boolean));
+    }
+
+    function setActive(index) {
+      activeIndex = index;
+      buttons.forEach((button) => {
+        button.classList.toggle("active", Number(button.dataset.replaceIndex) === index);
+      });
+      document.querySelectorAll("[data-draft-item]").forEach((item) => {
+        item.classList.toggle("active", Number(item.dataset.draftItem) === index);
+      });
+      renderChoices();
+    }
+
+    function renderChoices() {
+      const rowChoices = choices[activeIndex] || [];
+      const currentInput = document.querySelector(`[data-replacement-input="${activeIndex}"]`);
+      const selectedValue = currentInput ? currentInput.value : "";
+      const usedValues = selectedElsewhere();
+      title.textContent = `第 ${activeIndex + 1} 题可替换题目`;
+      list.innerHTML = "";
+      rowChoices.forEach((choice) => {
+        const choiceValue = choice.id === "" ? "" : String(choice.id);
+        const disabled = choiceValue && usedValues.has(choiceValue);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "replacement-choice";
+        if (choiceValue === selectedValue) button.classList.add("selected");
+        if (disabled) button.disabled = true;
+        const top = document.createElement("span");
+        top.className = "replacement-choice-top";
+        const difficulty = document.createElement("strong");
+        difficulty.textContent = choice.difficulty_label;
+        const chapter = document.createElement("em");
+        chapter.textContent = choice.chapter;
+        top.append(difficulty, chapter);
+        const content = document.createElement("span");
+        content.className = "replacement-choice-content";
+        content.textContent = choice.is_current ? choice.label : choice.content;
+        const note = document.createElement("span");
+        note.className = "replacement-choice-note";
+        note.textContent = `${choice.is_current ? "当前题目" : choice.question_type_label}${disabled ? " · 已被选择" : ""}`;
+        button.append(top, content, note);
+        button.addEventListener("click", () => chooseQuestion(choice));
+        list.appendChild(button);
+      });
+    }
+
+    function chooseQuestion(choice) {
+      const input = document.querySelector(`[data-replacement-input="${activeIndex}"]`);
+      if (!input) return;
+      input.value = choice.id === "" ? "" : String(choice.id);
+      document.querySelector(`[data-draft-content="${activeIndex}"]`).textContent = choice.content;
+      document.querySelector(`[data-draft-difficulty="${activeIndex}"]`).textContent = choice.difficulty_label;
+      document.querySelector(`[data-draft-chapter="${activeIndex}"]`).textContent = choice.chapter;
+      renderChoices();
+    }
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => setActive(Number(button.dataset.replaceIndex)));
+    });
+    if (buttons.length) setActive(0);
+  })();
+</script>
+{% endif %}
+{% endblock %}

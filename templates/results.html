@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}成绩记录 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">RESULTS</p>
+    <h1>成绩记录</h1>
+    <p class="muted">{{ '教师端可查看所有学生提交记录。' if current_user.role == 'teacher' else '这里保存你的考试提交记录。' }}</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('papers') }}">返回试卷</a>
+</div>
+
+{% if current_user.role == 'teacher' %}
+<form class="filter-bar result-filter" method="get">
+  <input name="student_keyword" value="{{ filters.student_keyword }}" placeholder="按学生账号或用户名筛选">
+  <input name="paper_keyword" value="{{ filters.paper_keyword }}" placeholder="按试卷名称筛选">
+  <input name="min_score" type="number" min="0" value="{{ filters.min_score }}" placeholder="最低分">
+  <input name="max_score" type="number" min="0" value="{{ filters.max_score }}" placeholder="最高分">
+  <button class="button secondary" type="submit">筛选</button>
+  <a class="button secondary" href="{{ url_for('results') }}">清空</a>
+</form>
+{% endif %}
+
+<section class="stats-grid">
+  <div class="stat"><span>提交次数</span><strong>{{ stats.attempt_count }}</strong></div>
+  {% if current_user.role == 'teacher' %}
+  <div class="stat"><span>学生人数</span><strong>{{ stats.student_count }}</strong></div>
+  {% endif %}
+  <div class="stat"><span>平均得分</span><strong>{{ stats.avg_score }}</strong></div>
+  <div class="stat"><span>最高得分</span><strong>{{ stats.best_score }}</strong></div>
+  <div class="stat"><span>最低得分</span><strong>{{ stats.lowest_score }}</strong></div>
+  <div class="stat"><span>通过率</span><strong>{{ stats.pass_rate }}%</strong></div>
+</section>
+<section class="table-wrap">
+  <table>
+    <thead>
+      <tr><th>ID</th><th>试卷</th><th>考生</th><th>得分</th><th>得分率</th><th>提交时间</th><th>操作</th></tr>
+    </thead>
+    <tbody>
+    {% for attempt in attempts %}
+    <tr>
+      <td>{{ attempt.id }}</td>
+      <td>{{ attempt.title }}</td>
+      <td>{{ attempt.username }}{% if attempt.account %}<p class="muted small">账号：{{ attempt.account }}</p>{% endif %}</td>
+      <td>{{ attempt.score }} / {{ attempt.total_score }}</td>
+      <td>
+        <span class="score-pill {{ 'pass' if attempt.score_rate and attempt.score_rate >= 60 else 'fail' }}">
+          {{ attempt.score_rate or 0 }}%
+        </span>
+      </td>
+      <td>{{ attempt.submitted_at }}</td>
+      <td class="actions">
+        <a href="{{ url_for('exam_result', attempt_id=attempt.id) }}">查看详情</a>
+        {% if current_user.role == 'teacher' %}
+        <a href="{{ url_for('results', student_keyword=attempt.username) }}">该学生记录</a>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="empty">暂无成绩记录。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}注册账号 - 在线题库系统{% endblock %}
+{% block content %}
+<section class="login-shell">
+  <div class="login-panel">
+    <div class="login-header">
+      <div>
+        <p class="eyebrow">ACCOUNT REGISTER</p>
+        <h1>注册账号</h1>
+        <p class="muted">账号必须为 8 位数字，用户名用于登录后显示。</p>
+      </div>
+      <div class="login-chip">CZU ID</div>
+    </div>
+    <form method="post" class="login-form">
+      <label>账号
+        <input name="username" value="{{ form.username }}" required pattern="\d{8}" maxlength="8" inputmode="numeric" placeholder="例如：20260001">
+      </label>
+      <label>用户名
+        <input name="display_name" value="{{ form.display_name }}" required minlength="2" maxlength="20" placeholder="例如：张三">
+      </label>
+      <label>用户身份
+        <select name="role">
+          <option value="student" {% if form.role == 'student' %}selected{% endif %}>学生</option>
+          <option value="teacher" {% if form.role == 'teacher' %}selected{% endif %}>教师</option>
+        </select>
+      </label>
+      <div class="initial-password-box">
+        <span>初始密码规则</span>
+        <strong>czu + 账号</strong>
+        <p>例如账号为 20260001，初始密码为 czu20260001。</p>
+      </div>
+      <button class="button primary" type="submit">完成注册</button>
+    </form>
+    <div class="login-actions">
+      <a class="button secondary" href="{{ url_for('login') }}">返回登录</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

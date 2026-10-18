@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}{{ paper.title }} - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">PAPER DETAIL</p>
+    <h1>{{ paper.title }}</h1>
+    <p class="muted">学科：{{ paper_subject }} · 创建人：{{ paper.creator }} · 总分：{{ paper.total_score }} 分 · 共 {{ items|length }} 题</p>
+  </div>
+  <div class="heading-actions">
+    {% if current_user.role == 'teacher' %}
+    <a class="button secondary" href="{{ url_for('export_paper', paper_id=paper.id, file_type='docx') }}">导出 Word</a>
+    <a class="button secondary" href="{{ url_for('export_paper', paper_id=paper.id, file_type='pdf') }}">导出 PDF</a>
+    {% endif %}
+    <a class="button secondary" href="{{ url_for('papers') }}">返回试卷</a>
+  </div>
+</div>
+<section class="paper-distribution">
+  <div>
+    <span>科目分布</span>
+    {% for label, count in distribution.subjects.items() %}
+    <strong>{{ label }} {{ count }} 题</strong>
+    {% endfor %}
+  </div>
+  <div>
+    <span>章节分布</span>
+    {% for label, count in distribution.chapters.items() %}
+    <strong>{{ label }} {{ count }} 题</strong>
+    {% endfor %}
+  </div>
+  <div>
+    <span>题型分布</span>
+    {% for label, count in distribution.types.items() %}
+    <strong>{{ label }} {{ count }} 题</strong>
+    {% endfor %}
+  </div>
+  <div>
+    <span>难度分布</span>
+    {% for label, count in distribution.difficulties.items() %}
+    <strong>{{ label }} {{ count }} 题</strong>
+    {% endfor %}
+  </div>
+</section>
+<section class="paper-sheet">
+  {% for item in items %}
+  <article class="exam-item">
+    <div class="exam-meta">
+      <span>第 {{ item.sort_order }} 题</span>
+      <span>{{ question_type_labels[item.question_type] }} · {{ item.score }} 分 · {{ difficulty_labels[item.difficulty] }}</span>
+    </div>
+    <h2>{{ item.content }}</h2>
+    {% if item.question_type in ['single', 'multiple'] and item.options %}
+    <div class="paper-options">
+      {% for option in parse_options(item.options) %}
+      <p>{{ option }}</p>
+      {% endfor %}
+    </div>
+    {% elif item.question_type == 'true_false' %}
+    <div class="paper-options">
+      <p>对</p>
+      <p>错</p>
+    </div>
+    {% endif %}
+    {% if preview %}
+    <p class="answer-line">参考答案：{{ item.answer }}</p>
+    {% if item.analysis %}<p class="analysis">解析：{{ item.analysis }}</p>{% endif %}
+    {% else %}
+    <p class="muted student-note">学生端仅显示题目内容，提交后查看得分。</p>
+    {% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

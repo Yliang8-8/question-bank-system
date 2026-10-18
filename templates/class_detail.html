@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ class_item.name }} - 班级管理{% endblock %}
+{% block content %}
+<div class="page-heading compact">
+  <div>
+    <p class="eyebrow">CLASS DETAIL</p>
+    <h1>{{ class_item.name }}</h1>
+    <p class="muted">当前共 {{ students|length }} 名学生。</p>
+  </div>
+  <div class="heading-actions">
+    <a class="button secondary" href="{{ url_for('class_student_import', class_id=class_item.id) }}">批量导入学生</a>
+    <a class="button secondary" href="{{ url_for('classes') }}">返回班级管理</a>
+  </div>
+</div>
+
+<form method="post" action="{{ url_for('class_add_student', class_id=class_item.id) }}" class="filter-bar">
+  <input name="student_lookup" list="student-options" placeholder="输入学生姓名或账号" required>
+  <datalist id="student-options">
+    {% for student in unassigned_students %}
+    <option value="{{ student.display_name or student.username }}（{{ student.username }}）"></option>
+    {% endfor %}
+  </datalist>
+  <button class="button primary" type="submit">添加学生</button>
+</form>
+
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>ID</th><th>姓名</th><th>账号</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for student in students %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ student.display_name or '未填写姓名' }}</td>
+        <td>{{ student.username }}</td>
+        <td class="actions">
+          <form method="post" action="{{ url_for('class_remove_student', class_id=class_item.id, user_id=student.id) }}" onsubmit="return confirm('确定把该学生移出班级吗？')">
+            <button class="link-danger" type="submit">移出班级</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="empty">这个班级还没有学生。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

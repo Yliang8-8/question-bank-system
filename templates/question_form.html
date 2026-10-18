@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑题目' if editing else '新增题目' }} - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading compact">
+  <div>
+    <p class="eyebrow">QUESTION EDITOR</p>
+    <h1>{{ '编辑题目' if editing else '新增题目' }}</h1>
+  </div>
+  <a class="button secondary" href="{{ url_for('questions') }}">返回题库</a>
+</div>
+<form method="post" class="editor-form">
+  <label>题目内容<textarea name="content" rows="5" required>{{ form.content }}</textarea></label>
+  <div class="form-grid">
+    <label>题目类型
+      <select name="question_type">
+        {% for value, label in question_type_labels.items() %}
+        <option value="{{ value }}" {% if form.question_type == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>难度
+      <select name="difficulty">
+        {% for value, label in difficulty_labels.items() %}
+        <option value="{{ value }}" {% if form.difficulty == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>所属科目
+      <select name="subject">
+        {% for subject in subjects %}
+        <option value="{{ subject }}" {% if form.subject == subject %}selected{% endif %}>{{ subject }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>所属章节<input name="chapter" value="{{ form.chapter }}" placeholder="例如：Python基础"></label>
+    <label>参考答案<input name="answer" value="{{ form.answer }}" required placeholder="例如：A 或 A,C"></label>
+  </div>
+  <label>选择题选项
+    <textarea name="options" rows="5" placeholder="选择题填写，例如：&#10;A. def&#10;B. class&#10;C. import&#10;D. return">{{ form.options }}</textarea>
+  </label>
+  <label>答案解析<textarea name="analysis" rows="4" placeholder="可选">{{ form.analysis }}</textarea></label>
+  <div class="form-actions">
+    <a class="button secondary" href="{{ url_for('questions') }}">取消</a>
+    <button class="button primary" type="submit">保存题目</button>
+  </div>
+</form>
+{% endblock %}

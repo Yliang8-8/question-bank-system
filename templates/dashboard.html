@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}概览 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">OVERVIEW</p>
+    <h1>系统概览</h1>
+    <p class="muted">欢迎回来，{{ current_user.display_name or current_user.username }}。{% if current_user.role == 'student' %}班级：{{ student_class.name if student_class else '未分班' }}{% endif %}</p>
+  </div>
+  {% if current_user.role == 'teacher' %}
+  <a class="button primary" href="{{ url_for('paper_new') }}">开始组卷</a>
+  {% else %}
+  <a class="button primary" href="{{ url_for('papers') }}">查看试卷</a>
+  {% endif %}
+</div>
+<section class="stats-grid">
+  <div class="stat"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"></ellipse><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"></path><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"></path></svg></span><span>题目总数</span><strong>{{ stats.questions }}</strong>{% if new_counts.questions %}<span class="stat-plus">+{{ new_counts.questions }}</span>{% endif %}</div>
+  <div class="stat"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m8 12 2.5 2.5L16 9"></path></svg></span><span>简单题</span><strong>{{ stats.easy }}</strong>{% if new_counts.easy %}<span class="stat-plus">+{{ new_counts.easy }}</span>{% endif %}</div>
+  <div class="stat"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 8 4-8 4-8-4 8-4Z"></path><path d="m4 12 8 4 8-4"></path><path d="m4 17 8 4 8-4"></path></svg></span><span>中等题</span><strong>{{ stats.medium }}</strong>{% if new_counts.medium %}<span class="stat-plus">+{{ new_counts.medium }}</span>{% endif %}</div>
+  <div class="stat"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path></svg></span><span>困难题</span><strong>{{ stats.hard }}</strong>{% if new_counts.hard %}<span class="stat-plus">+{{ new_counts.hard }}</span>{% endif %}</div>
+  <div class="stat"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"></path><path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h5"></path></svg></span><span>已生成试卷</span><strong>{{ stats.papers }}</strong></div>
+  <div class="stat"><span class="stat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1"></rect><path d="M9 12h6"></path><path d="M9 16h6"></path></svg></span><span>考试记录</span><strong>{{ stats.attempts }}</strong></div>
+</section>
+<section class="content-section">
+  <div class="section-heading">
+    <h2>最近试卷</h2>
+    <a href="{{ url_for('papers') }}">查看全部</a>
+  </div>
+  {% if recent_papers %}
+  <div class="paper-list">
+    {% for paper in recent_papers %}
+    <a class="paper-row" href="{{ url_for('papers') if current_user.role == 'student' else url_for('paper_detail', paper_id=paper.id) }}">
+      <div>
+        <strong>{{ paper.title }}</strong>
+        <p class="muted">{{ paper.creator }} · {{ paper.created_at }}</p>
+      </div>
+      <span>{{ paper.total_score }} 分 →</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="milestone">
+    <span class="status-dot"></span>
+    <div>
+      <strong>还没有生成试卷</strong>
+      <p class="muted">教师可以从“自动组卷”开始创建第一份试卷。</p>
+    </div>
+  </div>
+  {% endif %}
+</section>
+<script>
+  (function () {
+    const cards = document.querySelectorAll(".stat strong");
+    cards.forEach((card) => {
+      const target = Number.parseInt(card.textContent.replace(/[^\d]/g, ""), 10) || 0;
+      const duration = 2400;
+      const start = performance.now();
+      function frame(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        card.textContent = Math.round(target * eased);
+        if (progress < 1) {
+          requestAnimationFrame(frame);
+        } else {
+          card.textContent = target;
+        }
+      }
+      requestAnimationFrame(frame);
+    });
+  })();
+</script>
+{% endblock %}

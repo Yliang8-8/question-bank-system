@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}错题本 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">WRONG QUESTIONS</p>
+    <h1>错题本</h1>
+    <p class="muted">错题来自你已经提交过的考试，用于复盘薄弱知识点。</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('results') }}">查看成绩</a>
+</div>
+<section class="stats-grid">
+  <div class="stat"><span>错题数量</span><strong>{{ wrong_questions|length }}</strong></div>
+</section>
+<form class="filter-bar" method="get">
+  <input name="keyword" value="{{ filters.keyword }}" placeholder="搜索题目、章节或试卷">
+  <select name="subject">
+    <option value="">全部科目</option>
+    {% for subject in subjects %}<option value="{{ subject }}" {% if filters.subject == subject %}selected{% endif %}>{{ subject }}</option>{% endfor %}
+  </select>
+  <select name="difficulty">
+    <option value="">全部难度</option>
+    {% for value, label in difficulty_labels.items() %}<option value="{{ value }}" {% if filters.difficulty == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <select name="question_type">
+    <option value="">全部题型</option>
+    {% for value, label in question_type_labels.items() %}<option value="{{ value }}" {% if filters.question_type == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+  </select>
+  <button class="button secondary" type="submit">筛选</button>
+</form>
+<section class="paper-sheet">
+  {% for item in wrong_questions %}
+  <article class="exam-item">
+    <div class="exam-meta">
+      <span>{{ item.title }} · {{ item.submitted_at }}</span>
+      <span>{{ item.subject or '计算机基础' }} · {{ question_type_labels[item.question_type] }} · {{ difficulty_labels[item.difficulty] }} · {{ item.chapter or '未分类' }}</span>
+    </div>
+    <h2>{{ item.content }}</h2>
+    <p class="answer-line">你的答案：{{ item.user_answer or '未作答' }}</p>
+    <p class="answer-line">标准答案：{{ item.correct_answer }}</p>
+    {% if item.analysis %}<p class="analysis">解析：{{ item.analysis }}</p>{% endif %}
+  </article>
+  {% else %}
+  <div class="empty">暂无错题，保持这个状态就很漂亮。</div>
+  {% endfor %}
+</section>
+{% endblock %}

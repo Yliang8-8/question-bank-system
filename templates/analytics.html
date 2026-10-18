@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+{% block title %}成绩分析 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">ANALYTICS</p>
+    <h1>成绩分析</h1>
+    <p class="muted">{{ '教师端统计所有学生的提交情况。' if current_user.role == 'teacher' else '这里统计你的答题表现和薄弱环节。' }}</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('results') }}">查看成绩记录</a>
+</div>
+<form class="analytics-filter" method="get">
+  {% if current_user.role == 'teacher' %}
+  <label>
+    班级
+    <select name="class_id">
+      <option value="">全部班级</option>
+      {% for class_item in class_options %}
+      <option value="{{ class_item.id }}" {% if selected_class_id == class_item.id|string %}selected{% endif %}>{{ class_item.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <label>
+    考试科目
+    <select name="subject">
+      <option value="">全部科目</option>
+      {% for item in subject_options %}
+      <option value="{{ item.subject }}" {% if selected_subject == item.subject %}selected{% endif %}>{{ item.subject }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    试卷名称
+    <select name="paper_id">
+      <option value="">全部试卷</option>
+      {% for paper in paper_options %}
+      <option value="{{ paper.id }}" {% if selected_paper_id == paper.id|string %}selected{% endif %}>{{ paper.title }}</option>
+      {% endfor %}
+    </select>
+  </label>
+  <div class="analytics-filter-actions">
+    <button class="button primary" type="submit">查询</button>
+    <a class="button secondary" href="{{ url_for('analytics') }}">重置</a>
+  </div>
+</form>
+{% if current_user.role == 'teacher' %}
+<section class="analysis-panel analysis-curve">
+  <div class="analysis-curve-header">
+    <div>
+      <h2>一分一段</h2>
+      <p class="muted">按当前筛选条件统计分数分布。</p>
+    </div>
+    <strong>{{ overview.avg_rate }}%</strong>
+  </div>
+  <div class="analysis-curve-meta">
+    <div><span>条件</span><strong>{{ selected_subject or '全部科目' }}</strong></div>
+    <div><span>试卷</span><strong>{{ selected_paper_title or '全部试卷' }}</strong></div>
+    <div><span>提交</span><strong>{{ overview.attempts }}</strong></div>
+    <div><span>均分率</span><strong>{{ overview.avg_rate }}%</strong></div>
+  </div>
+  <div class="analysis-curve-body">
+    <svg class="analysis-line-chart" viewBox="0 0 1200 300" preserveAspectRatio="none" role="img" aria-label="一分一段折线图">
+      <defs>
+        <linearGradient id="curveFill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#61b2ff" stop-opacity="0.28"/>
+          <stop offset="100%" stop-color="#61b2ff" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+      <g class="curve-grid">
+        <line x1="70" y1="30" x2="70" y2="240"></line>
+        <line x1="70" y1="240" x2="1160" y2="240"></line>
+        {% for tick in [0, 100, 200, 300, 400] %}
+        <line x1="70" y1="{{ 240 - tick * 0.45 }}" x2="1160" y2="{{ 240 - tick * 0.45 }}"></line>
+        {% endfor %}
+      </g>
+      <polygon points="{{ score_curve.area_points }}" fill="url(#curveFill)"></polygon>
+      <polyline points="{{ score_curve.points }}" fill="none" stroke="#1d6bbf" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"></polyline>
+      {% if score_curve.peak %}
+      <line x1="{{ score_curve.peak.x }}" y1="{{ score_curve.peak.y }}" x2="{{ score_curve.peak.x }}" y2="240" class="curve-guide"></line>
+      <circle cx="{{ score_curve.peak.x }}" cy="{{ score_curve.peak.y }}" r="9" class="curve-point"></circle>
+      {% endif %}
+    </svg>
+    <div class="curve-axis">
+      <span>{{ score_buckets[0].label if score_buckets else '0分' }}</span>
+      <span>{{ selected_subject or '科目' }}</span>
+      <span>{{ score_buckets[-1].label if score_buckets else '100分' }}</span>
+    </div>
+  </div>
+</section>
+{% endif %}
+<section class="analysis-panel">
+  <div class="chart-tabs" data-correctness-tabs>
+    <button type="button" class="active" data-correctness-key="chapter">按章节正确率</button>
+    <button type="button" data-correctness-key="question_type">按题型正确率</button>
+    <button type="button" data-correctness-key="difficulty">按难度正确率</button>
+  </div>
+  <div id="correctness-chart" class="vchart-grid"></div>
+</section>
+{% if current_user.role == 'student' %}
+<div class="ability-layout">
+<section class="analysis-panel ability-panel">
+  <h2>历次考试能力波动</h2>
+  <div id="trend-chart" class="trend-chart"></div>
+</section>
+<section class="analysis-panel ability-panel">
+  <div class="section-heading">
+    <h2>个人能力雷达图</h2>
+    <span class="muted">按科目切换章节掌握度</span>
+  </div>
+  <div id="radar-chart" class="radar-chart"></div>
+</section>
+</div>
+{% endif %}
+{% if class_analysis %}
+<section class="analysis-panel">
+  <div class="section-heading">
+    <div>
+      <h2>班级分析：{{ class_analysis.name }}</h2>
+      <p class="muted">学生人数：{{ class_analysis.student_count }} · 提交次数：{{ class_analysis.attempts }}</p>
+    </div>
+    <strong>{{ class_analysis.avg_rate }}%</strong>
+  </div>
+  <div class="stats-grid">
+    <div class="stat"><span>班级平均得分率</span><strong>{{ class_analysis.avg_rate }}%</strong></div>
+    <div class="stat"><span>班级最高分</span><strong>{{ class_analysis.best_score }}</strong></div>
+    <div class="stat"><span>班级提交次数</span><strong>{{ class_analysis.attempts }}</strong></div>
+  </div>
+  <h2>学生学情列表</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>学号</th><th>姓名</th><th>提交次数</th><th>平均得分率</th><th>最高分</th><th>最近提交</th><th>操作</th></tr></thead>
+      <tbody>
+      {% for student in class_students %}
+        <tr>
+          <td>{{ student.username }}</td>
+          <td>{{ student.display_name or '未填写姓名' }}</td>
+          <td>{{ student.attempts }}</td>
+          <td>{{ student.avg_rate }}%</td>
+          <td>{{ student.best_score }}</td>
+          <td>{{ student.last_submitted or '暂无' }}</td>
+          <td><a href="{{ url_for('student_analytics', user_id=student.id) }}">查看学情</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="empty">这个班级还没有学生。</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+<section class="content-section">
+  <div class="section-heading">
+    <h2>最近提交</h2>
+    <a href="{{ url_for('results') }}">查看全部</a>
+  </div>
+  <div class="paper-list">
+    {% for row in recent %}
+    <div class="paper-row">
+      <div>
+        <strong>{{ row.title }}</strong>
+        <p class="muted">{{ row.username }} · {{ row.submitted_at }}</p>
+      </div>
+      <span>{{ row.score }} / {{ row.total_score }}</span>
+    </div>
+    {% else %}
+    <div class="empty">暂无提交记录。</div>
+    {% endfor %}
+  </div>
+</section>
+<script>
+  (function () {
+    const correctnessData = {{ chart_data|tojson }};
+    const radarData = {{ ability_radar_data|tojson }};
+    const trendData = {{ ability_trend_data|tojson }};
+    const selectedSubject = {{ selected_subject|tojson }};
+
+    function renderCorrectnessChart(key) {
+      const container = document.getElementById("correctness-chart");
+      if (!container) return;
+      container.innerHTML = "";
+      const rows = correctnessData[key] || [];
+      if (!rows.length) {
+        container.innerHTML = '<div class="empty">暂无分析数据。</div>';
+        return;
+      }
+      rows.forEach((row) => {
+        const item = document.createElement("div");
+        item.className = "vchart-item";
+        const wrap = document.createElement("div");
+        wrap.className = "vchart-bar-wrap";
+        const bar = document.createElement("div");
+        bar.className = "vchart-bar";
+        bar.style.height = `${Math.max(0, Math.min(100, row.rate))}%`;
+        wrap.appendChild(bar);
+        const value = document.createElement("span");
+        value.className = "vchart-value";
+        value.textContent = `${row.rate}%`;
+        wrap.appendChild(value);
+        const label = document.createElement("span");
+        label.className = "vchart-label";
+        label.textContent = row.label;
+        item.append(wrap, label);
+        container.appendChild(item);
+      });
+    }
+
+    function createSvg(viewBox) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", viewBox);
+      svg.setAttribute("preserveAspectRatio", "none");
+      svg.setAttribute("role", "img");
+      return svg;
+    }
+
+    function renderTrendChart() {
+      const container = document.getElementById("trend-chart");
+      if (!container) return;
+      container.innerHTML = "";
+      if (!trendData.length) {
+        container.innerHTML = '<div class="empty">暂无考试记录。</div>';
+        return;
+      }
+      const width = 760;
+      const height = 300;
+      const padding = 52;
+      const plotW = width - padding * 2;
+      const plotH = height - padding * 2;
+      const svg = createSvg(`0 0 ${width} ${height}`);
+      for (let i = 0; i <= 4; i++) {
+        const y = padding + plotH - (i / 4) * plotH;
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", padding);
+        line.setAttribute("x2", width - padding);
+        line.setAttribute("y1", y);
+        line.setAttribute("y2", y);
+        line.setAttribute("class", "chart-grid-line");
+        svg.appendChild(line);
+      }
+      const axis = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      axis.setAttribute("x1", padding);
+      axis.setAttribute("x2", padding);
+      axis.setAttribute("y1", padding);
+      axis.setAttribute("y2", height - padding);
+      axis.setAttribute("class", "chart-axis");
+      svg.appendChild(axis);
+      const base = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      base.setAttribute("x1", padding);
+      base.setAttribute("x2", width - padding);
+      base.setAttribute("y1", height - padding);
+      base.setAttribute("y2", height - padding);
+      base.setAttribute("class", "chart-axis");
+      svg.appendChild(base);
+
+      const classPoints = [];
+      const studentPoints = [];
+      trendData.forEach((point, index) => {
+        const x = padding + (index * plotW / (trendData.length - 1));
+        const yClass = height - padding - (point.class_avg_rate / 100) * plotH;
+        const yStudent = height - padding - (point.student_rate / 100) * plotH;
+        classPoints.push(`${x},${yClass}`);
+        studentPoints.push(`${x},${yStudent}`);
+      });
+      const classLine = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      classLine.setAttribute("points", classPoints.join(" "));
+      classLine.setAttribute("fill", "none");
+      classLine.setAttribute("stroke", "#94a3b8");
+      classLine.setAttribute("stroke-width", "3");
+      classLine.setAttribute("stroke-dasharray", "7 6");
+      svg.appendChild(classLine);
+      const studentLine = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      studentLine.setAttribute("points", studentPoints.join(" "));
+      studentLine.setAttribute("fill", "none");
+      studentLine.setAttribute("stroke", "#1d6bbf");
+      studentLine.setAttribute("stroke-width", "4");
+      studentLine.setAttribute("stroke-linecap", "round");
+      studentLine.setAttribute("stroke-linejoin", "round");
+      svg.appendChild(studentLine);
+      trendData.forEach((point, index) => {
+        const x = padding + (index * plotW / (trendData.length - 1));
+        const y = height - padding - (point.student_rate / 100) * plotH;
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("cx", x);
+        circle.setAttribute("cy", y);
+        circle.setAttribute("r", "5");
+        circle.setAttribute("fill", "#1d6bbf");
+        svg.appendChild(circle);
+      });
+      container.appendChild(svg);
+
+      const labels = document.createElement("div");
+      labels.className = "trend-labels";
+      trendData.forEach((point) => {
+        const span = document.createElement("span");
+        span.textContent = point.label;
+        labels.appendChild(span);
+      });
+      container.appendChild(labels);
+      const legend = document.createElement("div");
+      legend.className = "chart-legend";
+      legend.innerHTML = '<span class="student-line">个人得分率</span><span class="class-line">班级平均分</span>';
+      container.appendChild(legend);
+    }
+
+    function renderRadarChart(subject) {
+      const container = document.getElementById("radar-chart");
+      if (!container) return;
+      container.innerHTML = "";
+      const dataset = radarData.find((item) => item.subject === subject);
+      if (!dataset || !dataset.has_data) {
+        container.innerHTML = '<div class="empty">该科目暂无章节掌握度数据。</div>';
+        return;
+      }
+      const svg = createSvg("0 0 240 220");
+      const full = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      full.setAttribute("points", dataset.full_points);
+      full.setAttribute("fill", "none");
+      full.setAttribute("stroke", "#c8d3dd");
+      full.setAttribute("stroke-width", "2");
+      svg.appendChild(full);
+      const value = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      value.setAttribute("points", dataset.value_points);
+      value.setAttribute("fill", "rgba(29,107,191,0.18)");
+      value.setAttribute("stroke", "#1d6bbf");
+      value.setAttribute("stroke-width", "3");
+      svg.appendChild(value);
+      dataset.label_positions.forEach((pos, index) => {
+        const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        text.setAttribute("x", pos.x);
+        text.setAttribute("y", pos.y);
+        text.setAttribute("class", "radar-label");
+        text.textContent = `${pos.label} ${dataset.values[index]}%`;
+        svg.appendChild(text);
+      });
+      container.appendChild(svg);
+    }
+
+    document.querySelectorAll("[data-correctness-tabs] button").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-correctness-tabs] button").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        renderCorrectnessChart(button.dataset.correctnessKey);
+      });
+    });
+
+    renderCorrectnessChart("chapter");
+    renderTrendChart();
+    if (radarData.length) renderRadarChart(selectedSubject || radarData[0].subject);
+  })();
+</script>
+{% endblock %}

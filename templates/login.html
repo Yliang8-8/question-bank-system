@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}登录 - 在线题库系统{% endblock %}
+{% block body_class %}login-page{% endblock %}
+{% block content %}
+<section class="campus-login">
+  <img class="campus-login-bg" src="{{ url_for('static', filename='login-campus-bg.jpg') }}" alt="常州工学院新工科科创学院校园">
+  <div class="campus-login-card">
+    <div class="campus-login-title">
+      <p class="eyebrow">QUESTION BANK</p>
+      <h1>在线题库自动组卷系统</h1>
+    </div>
+    <form method="post" class="login-form">
+      <label>账号<input name="username" required autofocus placeholder="8位数字账号或测试账号"></label>
+      <label>密码<input name="password" type="password" required placeholder="初始密码为 czu+账号"></label>
+      <button class="button primary" type="submit">登录</button>
+    </form>
+    <div class="login-actions">
+      <a class="button secondary" href="{{ url_for('register') }}">注册账号</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

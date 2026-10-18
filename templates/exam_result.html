@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}成绩结果 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">RESULT</p>
+    <h1>{{ attempt.title }}</h1>
+    <p class="muted">考生：{{ attempt.username }}{% if attempt.account %} · 账号：{{ attempt.account }}{% endif %} · 本次得分：{{ attempt.score }} / {{ attempt.total_score }}</p>
+  </div>
+  <div class="heading-actions">
+    <a class="button secondary" href="{{ url_for('results') }}">返回成绩</a>
+    <a class="button secondary" href="{{ url_for('papers') }}">返回试卷</a>
+  </div>
+</div>
+<section class="stats-grid">
+  <div class="stat"><span>得分</span><strong>{{ attempt.score }}</strong></div>
+  <div class="stat"><span>总分</span><strong>{{ attempt.total_score }}</strong></div>
+  <div class="stat"><span>正确题数</span><strong>{{ details|selectattr('is_correct')|list|length }}</strong></div>
+  <div class="stat"><span>错误题数</span><strong>{{ details|rejectattr('is_correct')|list|length }}</strong></div>
+</section>
+<section class="paper-sheet">
+  {% for item in details %}
+  <article class="exam-item">
+    <div class="exam-meta">
+      <span>第 {{ item.sort_order }} 题</span>
+      <span>{{ item.score }} / {{ item.full_score }} 分</span>
+    </div>
+    <h2>{{ item.content }}</h2>
+    <p class="answer-line">你的答案：{{ item.answer or '未作答' }}</p>
+    <p class="{{ 'result-correct' if item.is_correct else 'result-wrong' }}">
+      {{ '回答正确' if item.is_correct else '回答错误' }}
+    </p>
+    <p class="answer-line">标准答案：{{ item.correct_answer }}</p>
+    {% if item.analysis %}<p class="analysis">解析：{{ item.analysis }}</p>{% endif %}
+  </article>
+  {% endfor %}
+</section>
+{% endblock %}

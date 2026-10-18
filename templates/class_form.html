@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{{ '编辑班级' if class_item else '新建班级' }} - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading compact">
+  <div>
+    <p class="eyebrow">CLASS FORM</p>
+    <h1>{{ '编辑班级' if class_item else '新建班级' }}</h1>
+  </div>
+  <a class="button secondary" href="{{ url_for('classes') }}">返回班级管理</a>
+</div>
+<form method="post" class="editor-form">
+  <label>班级名称<input name="name" value="{{ class_item.name if class_item else '' }}" placeholder="例如：计算机2301班" required></label>
+  <div class="form-actions">
+    <a class="button secondary" href="{{ url_for('classes') }}">取消</a>
+    <button class="button primary" type="submit">保存</button>
+  </div>
+</form>
+{% endblock %}

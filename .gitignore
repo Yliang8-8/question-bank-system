@@ -1,0 +1,33 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+
+# ---- 数据库（首次运行由 app.py 自动创建并填充演示数据）----
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+
+# ---- 试卷导出产物（运行时会自动重建 exports/ 目录）----
+exports/
+
+# ---- 编辑器 / IDE ----
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---- 系统文件 ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- 日志 ----
+*.log

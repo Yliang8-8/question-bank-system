@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}班级管理 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">CLASSES</p>
+    <h1>班级管理</h1>
+    <p class="muted">管理你的班级和学生名单。</p>
+  </div>
+  <a class="button primary" href="{{ url_for('class_new') }}">新建班级</a>
+</div>
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>ID</th><th>班级名称</th><th>学生人数</th><th>创建时间</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for class_item in classes %}
+      <tr>
+        <td>{{ loop.index }}</td>
+        <td>{{ class_item.name }}</td>
+        <td>{{ class_item.student_count }}</td>
+        <td>{{ class_item.created_at }}</td>
+        <td class="actions">
+          <a href="{{ url_for('class_detail', class_id=class_item.id) }}">学生管理</a>
+          <a href="{{ url_for('class_student_import', class_id=class_item.id) }}">批量导入</a>
+          <a href="{{ url_for('class_edit', class_id=class_item.id) }}">编辑</a>
+          <form method="post" action="{{ url_for('class_delete', class_id=class_item.id) }}" onsubmit="return confirm('确定删除这个班级吗？学生将被移出班级，但账号不会删除。')">
+            <button class="link-danger" type="submit">删除</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="empty">还没有班级。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}批量导入学生 - {{ class_item.name }}{% endblock %}
+{% block content %}
+<div class="page-heading compact">
+  <div>
+    <p class="eyebrow">IMPORT STUDENTS</p>
+    <h1>批量导入学生</h1>
+    <p class="muted">向“{{ class_item.name }}”导入学生，支持 CSV 或 Excel 文件。</p>
+  </div>
+  <a class="button secondary" href="{{ url_for('class_detail', class_id=class_item.id) }}">返回班级</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="editor-form import-form">
+  <label>选择文件<input type="file" name="file" accept=".csv,text/csv,.xlsx,.xlsm" required></label>
+  <div class="form-actions">
+    <button class="button primary" type="submit">开始导入</button>
+  </div>
+</form>
+
+{% if result %}
+<section class="table-wrap import-result">
+  <table>
+    <tbody>
+      <tr><td>新增学生</td><td>{{ result.added }}</td></tr>
+      <tr><td>更新学生</td><td>{{ result.updated }}</td></tr>
+      <tr><td>错误行数</td><td>{{ result.errors|length }}</td></tr>
+    </tbody>
+  </table>
+  {% if result.errors %}
+  <div class="import-errors">
+    <ul>
+      {% for error in result.errors %}
+      <li>{{ error }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+<section class="import-guide">
+  <h2>文件格式</h2>
+  <p class="muted">第一行请使用以下字段，之后每行一名学生：</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>姓名</th><th>账号</th></tr></thead>
+      <tbody><tr><td>例如：张三</td><td>例如：20240001</td></tr></tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}

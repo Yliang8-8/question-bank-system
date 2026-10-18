@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}试卷管理 - 在线题库系统{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div>
+    <p class="eyebrow">PAPERS</p>
+    <h1>试卷管理</h1>
+    <p class="muted">已生成 {{ papers|length }} 份试卷。</p>
+  </div>
+  <div class="heading-actions">
+    {% if current_user.role == 'teacher' %}
+    <a class="button secondary" href="{{ url_for('question_import') }}">批量导入题目</a>
+    <a class="button primary" href="{{ url_for('paper_new') }}">自动组卷</a>
+    {% endif %}
+  </div>
+</div>
+{% if current_user.role == 'teacher' %}
+<form class="filter-bar" method="get">
+  <select name="class_id">
+    <option value="">选择班级查看完成情况</option>
+    {% for class_item in class_options %}
+    <option value="{{ class_item.id }}" {% if selected_class_id == class_item.id|string %}selected{% endif %}>{{ class_item.name }}</option>
+    {% endfor %}
+  </select>
+  <button class="button secondary" type="submit">查看</button>
+</form>
+{% endif %}
+<section class="table-wrap">
+  <table>
+    <thead><tr><th>ID</th><th>试卷名称</th><th>学科</th><th>总分</th><th>创建人</th><th>创建时间</th><th>状态</th><th>操作</th></tr></thead>
+    <tbody>
+    {% for paper in papers %}
+    <tr>
+      <td>{{ paper.display_id }}</td>
+      <td>{{ paper.title }}</td>
+      <td>{{ paper.subject }}</td>
+      <td>{{ paper.total_score }} 分</td>
+      <td>{{ paper.creator }}</td>
+      <td>{{ paper.created_at }}</td>
+      <td>
+        {% if current_user.role == 'teacher' %}
+        <span class="score-pill pass">{{ paper.completion_text }}</span>
+        {% elif current_user.role == 'student' %}
+        {% if paper.remaining_attempts <= 0 %}
+        <span class="score-pill pass">已完成</span>
+        {% else %}
+        <span class="score-pill fail">可做 {{ paper.remaining_attempts }} 次</span>
+        {% endif %}
+        {% endif %}
+      </td>
+      <td class="actions">
+        {% if current_user.role == 'teacher' %}
+        <a href="{{ url_for('paper_detail', paper_id=paper.id) }}">查看</a>
+        {% else %}
+        {% if paper.remaining_attempts <= 0 %}
+        <a href="{{ url_for('results', paper_keyword=paper.title) }}">查看成绩</a>
+        {% else %}
+        {% if paper.remaining_attempts >= 2 and paper.attempt_count > 0 %}
+        <a href="{{ url_for('take_paper', paper_id=paper.id) }}">快速重练</a>
+        <a href="{{ url_for('take_paper', paper_id=paper.id) }}">开始考试</a>
+        {% else %}
+        <a class="confirm-once" data-max-attempts="{{ paper.max_attempts }}" href="{{ url_for('take_paper', paper_id=paper.id) }}">开始考试</a>
+        {% endif %}
+        {% endif %}
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" class="empty">暂无试卷。</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+<script>
+  document.querySelectorAll(".confirm-once").forEach((link) => {
+    link.addEventListener("click", (event) => {
+      if (link.dataset.maxAttempts === "1") {
+        if (!window.confirm("该卷限做1次，确定开始考试吗？")) {
+          event.preventDefault();
+        }
+      }
+    });
+  });
+</script>
+{% endblock %}
